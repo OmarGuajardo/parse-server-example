@@ -1,13 +1,14 @@
 //CLOUD FUNCS
 
-//TODO: get the key from .env
-Parse.initialize(process.env.APP_ID);
-Parse.serverURL = 'http://localhost:1337/parse'
-
+// //TODO: get the key from .env
+// Parse.initialize(process.env.APP_ID);
+// Parse.serverURL = 'http://localhost:1337/parse'
+let x = 2;
 Parse.Cloud.define('hello', function(req, res) {
-  return 'Hi';
+  return 'Hi ' + x;
+});
+Parse.Cloud.define('get_user_name', function(objID, res) {
+  return Parse.User.get(objID).get("username");
 });
 
-Parse.Cloud.define("hello_world_omar",function(){
-  return 'Hello from FBU at Texas';
-})
+
