@@ -18,7 +18,10 @@ Parse.Cloud.define("updateLists", async (request)=>{
   listShoes = [];
   let allItemsRelation = (await userCloset).relation("allItems");
 
-  allItems = (await allItemsRelation.query().find());
+  //allItems needs to be clean Items only
+  const allItemsQuery = allItemsRelation.query();
+  allItemsQuery.equalTo("Worn",false)
+  allItems = (await allItemsQuery.find());
   for (let i = 0; i < allItems.length; i++) {
     let className = allItems[i].get("Class");
     switch(className){
@@ -38,20 +41,21 @@ Parse.Cloud.define("updateLists", async (request)=>{
         break;
     }
   }
+  //Apply weather filter
+  listTop = weatherFilter(listTop,request.params.temp);
+  listBottom = weatherFilter(listBottom,request.params.temp);
   return ("Lists updated!");
 });
 
 Parse.Cloud.define("generateOutfits",async(request)=>{
-  //Apply weather filter
-  weatherFilter(listTop,request.params.temp);
-  weatherFilter(listBottom,request.params.temp);
   //Filter based on wether the user wants a Random,Seasonal or Occasion Outfit
   //From filtered lists choose random selection of Layer,Top,Bottom and Shoes
   let generated_outfits = [];
-  let local_layer_list = listLayer;
-  let local_top_list = listTop;
-  let local_bottom_list = listBottom;
-  let local_shoes_list = listShoes;
+  let local_layer_list = [...listLayer];
+  let local_top_list = [...listTop];
+  let local_bottom_list = [...listBottom];
+  let local_shoes_list = [...listShoes];
+  
   for(let i = 0; i < 30; i++){
       //refilling array
     if(local_layer_list.length < 1){
@@ -68,19 +72,20 @@ Parse.Cloud.define("generateOutfits",async(request)=>{
       local_shoes_list = [...listShoes];
     }
 
-    //choosing random tops,bottoms and shoes
+    //choosing random layer,tops,bottoms and shoes
     let random_layer= local_layer_list[Math.floor(Math.random()*local_layer_list.length)]
     let random_top = local_top_list[Math.floor(Math.random()*local_top_list.length)]
     let random_bottom = local_bottom_list[Math.floor(Math.random()*local_bottom_list.length)]
     let random_shoe = local_shoes_list[Math.floor(Math.random()*local_shoes_list.length)]
 
-    // let newFit = {
-    //     Layer:random_layer,
-    //     Top:random_top,
-    //     Bottom:random_bottom,
-    //     Shoe:random_shoe
-    // }
-    let newFit = [random_layer,random_top,random_bottom,random_shoe]
+    let newFit = {
+        Layer:random_layer,
+        Top:random_top,
+        Bottom:random_bottom,
+        Shoe:random_shoe
+    }
+
+    // let newFit = [random_layer,random_top,random_bottom,random_shoe]
     generated_outfits.push(newFit)
     //removing the items
     local_layer_list.splice(local_layer_list.indexOf(random_layer),1)
@@ -91,9 +96,30 @@ Parse.Cloud.define("generateOutfits",async(request)=>{
  
   return generated_outfits;
 });
+Parse.Cloud.define("categoryOccasion",async(request)=>{
+  listLayer = occassionFilter(listLayer,request.params.occasion);
+  listTop =occassionFilter(listTop,request.params.occasion);
+  listBottom =occassionFilter(listBottom,request.params.occasion);
+  listShoes =occassionFilter(listShoes,request.params.occasion);
+  if(listTop.length == 0 || listBottom.length == 0 || listShoes.length == 0){
+    return false;
+  }
+  return true;
+});
+Parse.Cloud.define("categorySeason",async(request)=>{
+  listLayer = seasonFilter(listLayer,request.params.season);
+  listTop = seasonFilter(listTop,request.params.season);
+  listBottom = seasonFilter(listBottom,request.params.season);
+  if(listTop.length == 0 || listBottom.length == 0 || listShoes.length == 0){
+    return false;
+  }
+  return true;
+});
+
+
 
 function weatherFilter(list, temp){
-  
+
   let unacceptableStyle = [];
   let unacceptableType = [];
   if(temp > 75){
@@ -121,18 +147,20 @@ function weatherFilter(list, temp){
 
   return(appropiateItems);
 }
+
 function occassionFilter(list,category){ 
   let newList = list.filter(item => item.get("Category") == category);
   return(newList)
 }
-function seasonFilter(season, list){ 
+function seasonFilter(list,season){ 
   let coolColors = ["Red","Blue","Grey","Purple","Black","White","Pink"];
   let warmColors = ["Green","Grey","Yellow","Black","Brown","White","Tan","Orange"];
+  let newList = [];
   if(season == "Summer"  || season == "Winter"){
-    let newList = list.filter(item => coolColors.includes(item.get("Color")));
+    newList = list.filter(item => coolColors.includes(item.get("Color")));
   }
   else{
-    let newList = list.filter(item => warmColors.includes(item.get("Color")));
+    newList = list.filter(item => warmColors.includes(item.get("Color")));
   }
   return(newList)
 }
