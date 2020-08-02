@@ -4,8 +4,9 @@ let listLayer = [];
 let listTop = [];
 let listBottom = [];
 let listShoes = [];
-
-
+let filter = "";
+let userFitsRelation;
+let listFavoriteFits = [];
 
 Parse.Cloud.define("updateLists", async (request)=>{
   var query = new Parse.Query("Closet");
@@ -17,6 +18,7 @@ Parse.Cloud.define("updateLists", async (request)=>{
   listBottom = [];
   listShoes = [];
   let allItemsRelation = (await userCloset).relation("allItems");
+  userFitsRelation = (await userCloset).relation("UserFits");
 
   //allItems needs to be clean Items only
   const allItemsQuery = allItemsRelation.query();
@@ -41,6 +43,7 @@ Parse.Cloud.define("updateLists", async (request)=>{
         break;
     }
   }
+  console.log("temperature received ",request.params.temp);
   //Apply weather filter
   listTop = weatherFilter(listTop,request.params.temp);
   listBottom = weatherFilter(listBottom,request.params.temp);
@@ -48,6 +51,12 @@ Parse.Cloud.define("updateLists", async (request)=>{
 });
 
 Parse.Cloud.define("generateOutfits",async(request)=>{
+  if(listFavoriteFits.length > 1){
+    return {
+      Category : filter,
+      Fits: listFavoriteFits
+    }
+  }
   //Filter based on wether the user wants a Random,Seasonal or Occasion Outfit
   //From filtered lists choose random selection of Layer,Top,Bottom and Shoes
   let generated_outfits = [];
@@ -93,10 +102,56 @@ Parse.Cloud.define("generateOutfits",async(request)=>{
     local_bottom_list.splice(local_bottom_list.indexOf(random_bottom),1)
     local_shoes_list.splice(local_shoes_list.indexOf(random_shoe),1)
   }
- 
-  return generated_outfits;
+  return {
+    Category : filter,
+    Fits: generated_outfits
+  }
+
 });
+
+Parse.Cloud.define("categoryRandom",async(request)=>{
+  filter = "Random";
+  if(listTop.length == 0 || listBottom.length == 0 || listShoes.length == 0){
+    return false;
+  }
+  return true;
+});
+
+Parse.Cloud.define("categoryFavorite",async(request)=>{
+  //Query UserFits whereEqualTo("Favorite",true)
+ //This returns a list of Fits
+ //Need to transform list of Fits into following format
+  //  let newFit = {
+  //   Layer:random_layer,
+  //   Top:random_top,
+  //   Bottom:random_bottom,
+  //   Shoe:random_shoe
+  // }
+
+  filter = "Favorite";
+  const userFitsQuery = userFitsRelation.query();
+  userFitsQuery.equalTo("Favorite",true);
+  let queriedFavoriteFits = (await userFitsQuery.find());
+  if(queriedFavoriteFits.length > 1){
+    for(let i = 0; i < queriedFavoriteFits.length; i++){
+      let fitItem = queriedFavoriteFits[i];
+      
+      let newFit = {
+        Layer: (fitItem.get("Layer") == undefined ? undefined : (await(fitItem.get("Layer")).fetch())),
+        Top:(await(fitItem.get("Top")).fetch()),
+        Bottom:(await(fitItem.get("Bottom")).fetch()),
+        Shoe:(await(fitItem.get("Shoes")).fetch())
+      }
+      listFavoriteFits.push(newFit);
+    }
+    return true;
+  }
+  return false;
+  
+});
+
 Parse.Cloud.define("categoryOccasion",async(request)=>{
+  filter = "Occasion";
   listLayer = occassionFilter(listLayer,request.params.occasion);
   listTop =occassionFilter(listTop,request.params.occasion);
   listBottom =occassionFilter(listBottom,request.params.occasion);
@@ -106,7 +161,9 @@ Parse.Cloud.define("categoryOccasion",async(request)=>{
   }
   return true;
 });
+
 Parse.Cloud.define("categorySeason",async(request)=>{
+  filter = "Season";
   listLayer = seasonFilter(listLayer,request.params.season);
   listTop = seasonFilter(listTop,request.params.season);
   listBottom = seasonFilter(listBottom,request.params.season);
@@ -115,8 +172,6 @@ Parse.Cloud.define("categorySeason",async(request)=>{
   }
   return true;
 });
-
-
 
 function weatherFilter(list, temp){
 
@@ -152,6 +207,7 @@ function occassionFilter(list,category){
   let newList = list.filter(item => item.get("Category") == category);
   return(newList)
 }
+
 function seasonFilter(list,season){ 
   let coolColors = ["Red","Blue","Grey","Purple","Black","White","Pink"];
   let warmColors = ["Green","Grey","Yellow","Black","Brown","White","Tan","Orange"];
