@@ -51,7 +51,7 @@ Parse.Cloud.define("updateLists", async (request)=>{
 });
 
 Parse.Cloud.define("generateOutfits",async(request)=>{
-  if(listFavoriteFits.length > 1){
+  if(filter == "Favorite"){
     return {
       Category : filter,
       Fits: listFavoriteFits
@@ -118,16 +118,7 @@ Parse.Cloud.define("categoryRandom",async(request)=>{
 });
 
 Parse.Cloud.define("categoryFavorite",async(request)=>{
-  //Query UserFits whereEqualTo("Favorite",true)
- //This returns a list of Fits
- //Need to transform list of Fits into following format
-  //  let newFit = {
-  //   Layer:random_layer,
-  //   Top:random_top,
-  //   Bottom:random_bottom,
-  //   Shoe:random_shoe
-  // }
-
+  listFavoriteFits = [];
   filter = "Favorite";
   const userFitsQuery = userFitsRelation.query();
   userFitsQuery.equalTo("Favorite",true);
@@ -144,6 +135,7 @@ Parse.Cloud.define("categoryFavorite",async(request)=>{
       }
       listFavoriteFits.push(newFit);
     }
+    console.log("lengt of favorite fits " , listFavoriteFits.length)
     return true;
   }
   return false;
